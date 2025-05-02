@@ -1,0 +1,30 @@
+input_file_name: spz
+
+img_histogram_eq:
+  pix_bright_percent: 95
+
+img_mask:
+  active: False
+  pix_threshold: 170
+
+img_smoothing:
+  pix_neighborhood: 7
+  sigma_colorspace: 75
+  sigma_coordspace: 75
+
+img_edges:
+  pix_not_edge_threshold: 50
+  pix_is_edge_threshold: 175
+
+img_morph:
+  dilation_iter: 1
+  erosion_iter: 1
+
+body_detection:
+  min_area: 10
+  max_area: 70
+
+history_points: 20
+display_move_mag: True
+overlay_original_frame: True
+export_csv: True
