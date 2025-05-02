@@ -17,7 +17,8 @@ from utils import utils
 
 init()
 
-
+os.makedirs('data', exist_ok=True)
+os.makedirs('outputs', exist_ok=True)
 
 
 def clear_screen():
