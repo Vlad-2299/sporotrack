@@ -22,8 +22,7 @@ echo Installing dependencies...
 call uv pip install -e .
 
 echo =================-Installation complete!-=================
-echo Running SPOROTRACKER
-call uv run main.py
+echo Run the program with the command: uv run main.py
 
 REM 
 pause

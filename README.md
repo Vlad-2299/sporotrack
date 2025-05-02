@@ -11,7 +11,7 @@ To get started, in the `/sporotrack` directory, run:
 
 - Windows: `./setup.bat`
 
-
+Once the installation is complete, run the program with `uv run main.py`
 ---
 
 ## Frame processing pipeline
@@ -21,7 +21,6 @@ To get started, in the `/sporotrack` directory, run:
 2. **Image Histogram Equalization:** Helps to improve the contrast of the 8bit frame, only in the high pixel value rigions
 
 3. **Image Masking (_optional_):** Helps to reduce noise by thresholding the 8bit frame, where all the pixel values above the threshold are preserved, and all the pixel values below the treshold are set to 0
-
 
 4. **Image Smoothing:** Employs bilateral filter to reduce noise, while preserving edge sharpness
 

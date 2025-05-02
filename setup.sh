@@ -22,7 +22,5 @@ uv pip install -e .
 uv pip install uvloop
 
 echo "=================-Installation complete!-================="
-echo "Running SPOROTRACKER"
-
-uv run main.py
+echo "Run the program with the command: uv run main.py"
 echo "====================================="
