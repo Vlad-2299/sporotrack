@@ -100,6 +100,15 @@ Analyze microscopy imagery to detect and track elliptical or circular bodies suc
 9. **View Settings** *(Coming Soon)*
    - Configuration interface for processing parameters
 
+
+## Data Folders
+These folders are accessed to read/write data from/to. Folders will be automatically created if not present.
+
+- data: contains input tif files for processing.
+
+- outputs: store all the processed tif files, including tracking data in csv.
+
+
 ## Configuration Settings
 
 SPOROTRACKER can be customized via the settings file. Below is an explanation of each parameter:

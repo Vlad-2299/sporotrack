@@ -228,8 +228,6 @@ def main():
             
             info_message(f"File {_input_file_name}_mask.tif saved")
             
-            
-        
         elif choice == '4':
             settings = utils.read_yaml()
             _input_file_name = settings["input_file_name"]
