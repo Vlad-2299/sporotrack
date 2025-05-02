@@ -9,6 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
-.DS_Store/
+.DS_Store
 data/*
+!data/.gitignore
 outputs/*
+!outputs/.gitignore
