@@ -157,7 +157,7 @@ def main():
                     cv.ellipse(frame_np, center, axes, angle, 0, 360, color, -1)
                     cv.putText(frame_np, f"#{obj_idx}", (center[0] + 10, center[1]), cv.FONT_HERSHEY_SIMPLEX, 0.25, color, 1)
                     
-                    for past_frame in range(max(0, i-_hist_points), i):
+                    for past_frame in range(max(0, i_f-_hist_points), i_f):
                         past_params = tracked_ellipses[past_frame, :, obj_idx]
                         if not np.isnan(past_params[0]):
                             past_center = (int(past_params[0]), int(past_params[1]))
