@@ -2,7 +2,6 @@
 
 Analyze microscopy imagery to detect and track elliptical or circular bodies such as sporozoites.
 
-![Tracked](assets/tracked.png)
 
 ## Installation
 
@@ -27,8 +26,6 @@ Analyze microscopy imagery to detect and track elliptical or circular bodies suc
 
 ## Frame Processing Pipeline
 
-SPOROTRACKER employs a sophisticated image processing pipeline to identify and track microscopic bodies:
-
 1. **Image Normalization**
    - Standardizes 8-bit frame values to the full 0-255 range
    - Ensures consistent brightness and contrast across frames
@@ -37,13 +34,9 @@ SPOROTRACKER employs a sophisticated image processing pipeline to identify and t
    - Enhances contrast in high-intensity regions
    - Improves visibility of faint structures
 
-   ![HistEq](assets/histeq.png)
-
 3. **Threshold Masking** *(optional)*
    - Reduces noise by applying a pixel intensity threshold
    - Preserves values above threshold, sets values below to zero
-
-   ![Mask](assets/mask.png)
 
 4. **Bilateral Filtering**
    - Smooths image while preserving edge sharpness
@@ -53,8 +46,6 @@ SPOROTRACKER employs a sophisticated image processing pipeline to identify and t
    - Generates binary image with continuous edge lines
    - Highlights areas of high pixel intensity change
 
-   ![Edges](assets/edges.png)
-
 6. **Morphological Transformations**
    - Performs dilation followed by erosion
    - Fills small gaps between edges to create continuous boundaries
@@ -63,38 +54,42 @@ SPOROTRACKER employs a sophisticated image processing pipeline to identify and t
    - Traces continuous points along object boundaries
    - Identifies potential sporozoites or other bodies of interest
 
-   ![Contours](assets/contours.png)
 
 ## Program Features
-
-SPOROTRACKER offers several analysis modes:
 
 1. **Detect & Track Sporozoites**
    - Runs the complete processing pipeline
    - Identifies and follows sporozoites across frames
    - Displays tracking data in real-time
+![Tracked](assets/tracked.png)
+
 
 2. **Apply Histogram Equalization**
    - Shows results after step 2 of the pipeline
    - Helps evaluate contrast enhancement
+![HistEq](assets/histeq.png)
+
 
 3. **Apply Threshold Masking**
    - Shows results after step 3 of the pipeline
    - Aids in threshold adjustment
+![Mask](assets/mask.png)
+
 
 4. **Detect Edges**
    - Shows results after step 5 of the pipeline
    - Highlights boundary detection
+![Edges](assets/edges.png)
 
 5. **Detect Contours**
    - Shows results after step 7 of the pipeline
    - Visualizes identified bodies
+![Contours](assets/contours.png)
 
 6. **Detect All Bodies**
    - Identifies all elliptical shapes
    - Displays individual area measurements
-
-   ![Detections](assets/detects.png)
+![Detections](assets/detects.png)
 
 7. **Trim TIF** *(Coming Soon)*
    - Functionality to trim TIF image sequences
