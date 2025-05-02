@@ -132,7 +132,7 @@ body_detection:
   max_area: 70  # Maximum area (in pixels) for a detected body to be considered valid
 
 history_points: 20  # Number of previous positions to store for tracking visualization
-display_move_mag: True  # Show magnitude of movement in the visualization
+display_move_mag: True  # Show average movement with an arrow on the top left representing direction and magnitude
 overlay_original_frame: True  # Overlay detection results on the original microscopy frame
 export_csv: True  # Export tracking data to CSV file
 ```
