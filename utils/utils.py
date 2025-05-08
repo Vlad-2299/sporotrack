@@ -61,7 +61,7 @@ def get_edges(img, params_bfilter, params_canny):
 
 
 def apply_morph(img, params_morph):
-    kernel = np.ones((3, 3), np.uint8)
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,(5,5))
     dilated = cv.dilate(img, kernel, iterations=params_morph["dilation_iter"])
     eroded = cv.erode(dilated, kernel, iterations=params_morph["erosion_iter"])
     return eroded
