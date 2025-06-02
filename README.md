@@ -113,6 +113,10 @@ SPOROTRACKER can be customized via the settings file. Below is an explanation of
 ```yaml
 input_file_name: spz  # Base name of the input file to analyze
 
+tracker:
+  max_missing_frames: 25   # Number of consecutive frames to wait before retireing unassigned ID
+  max_reassign_dist: 100   # Distance in pixels (Eucledian) allowed for ID assignment
+
 img_histogram_eq:
   pix_bright_percent: 95  # Percentile for histogram equalization cutoff (higher values increase contrast)
 
