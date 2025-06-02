@@ -1,5 +1,9 @@
 input_file_name: spz
 
+tracker:
+  max_missing_frames: 25
+  max_reassign_dist: 100
+
 img_histogram_eq:
   pix_bright_percent: 95
 

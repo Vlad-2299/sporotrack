@@ -130,7 +130,7 @@ def generate_random_color(index=None):
     
     
 
-def kalman_filter_ellipse_tracking(ellipse_array):
+def kalman_filter_ellipse_tracking(ellipse_array, _params_tracker):
     def initialize_kalman_filter():
         # Updated to track 5 parameters: center_x, center_y, major_axis, minor_axis, angle
         kf = KalmanFilter(dim_x=10, dim_z=5)
@@ -182,9 +182,6 @@ def kalman_filter_ellipse_tracking(ellipse_array):
     track_active = np.zeros(initial_capacity, dtype=bool)  # Currently active tracks
     next_track_id = 0
     
-    # Parameters for track management
-    MAX_MISSING_FRAMES = 25  # Frames before track becomes inactive
-    MAX_REASSING_DIST = 50
     
     for frame_idx in tqdm(range(n_frames), desc='Tracking ellipses'):
         ellipses = ellipse_array[frame_idx].T
@@ -199,7 +196,7 @@ def kalman_filter_ellipse_tracking(ellipse_array):
         # Update track statuses - mark tracks as inactive if missing too long
         for track_idx in range(next_track_id):
             if track_used[track_idx] and track_active[track_idx]:
-                if frame_idx - last_seen_frame[track_idx] > MAX_MISSING_FRAMES:
+                if frame_idx - last_seen_frame[track_idx] > _params_tracker['max_missing_frames']:
                     track_active[track_idx] = False
         
         
@@ -296,7 +293,7 @@ def kalman_filter_ellipse_tracking(ellipse_array):
             current_center = current_ellipse[:2]
             center_distance = np.linalg.norm(predicted_center - current_center)
 
-            if center_distance > MAX_REASSING_DIST: continue
+            if center_distance > _params_tracker['max_reassign_dist']: continue
 
             assigned_detections.add(det_idx)
             

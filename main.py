@@ -78,6 +78,7 @@ def main():
             _input_file_name = settings["input_file_name"]
             _input_file = tiff.imread(f'data/{_input_file_name}.tif')
             _params_mask = settings["img_mask"]
+            _params_tracker = settings["tracker"]
             _params_histogram = settings["img_histogram_eq"]
             _params_bfilter = settings["img_smoothing"]
             _params_canny = settings["img_edges"]
@@ -110,7 +111,7 @@ def main():
 
             print(f" -> For {ellipses_array.shape[0]} frames, a max of {ellipses_array.shape[-1]} bodies were detected")
             
-            tracked_ellipses = utils.kalman_filter_ellipse_tracking(ellipses_array)
+            tracked_ellipses = utils.kalman_filter_ellipse_tracking(ellipses_array, _params_tracker)
             #tracked_ellipses = utils.remove_incomplete_tracks(tracked_ellipses)
             new_max_dets = tracked_ellipses.shape[-1]
             
