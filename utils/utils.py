@@ -292,11 +292,11 @@ def kalman_filter_ellipse_tracking(ellipse_array):
                 continue
             
             current_ellipse = current_ellipses[det_idx]
-            predicted_center = kfs[track_idx].x[:2]
+            predicted_center = last_ellipses[track_idx][:2]
             current_center = current_ellipse[:2]
             center_distance = np.linalg.norm(predicted_center - current_center)
 
-            if center_distance > 500: continue
+            if center_distance > MAX_REASSING_DIST: continue
 
             assigned_detections.add(det_idx)
             
@@ -330,7 +330,7 @@ def kalman_filter_ellipse_tracking(ellipse_array):
             current_ellipse = current_ellipses[det_idx]
             kfs[new_track_idx] = initialize_kalman_with_detection(current_ellipse)
             kfs[new_track_idx].update(current_ellipse)
-            tracked_ellipses[frame_idx, :5, new_track_idx] = current_ellipse  # Only store first 5 parameters
+            tracked_ellipses[frame_idx, :5, new_track_idx] = current_ellipse  
             last_ellipses[new_track_idx] = current_ellipse
             last_seen_frame[new_track_idx] = frame_idx
             track_used[new_track_idx] = True
