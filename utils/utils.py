@@ -41,7 +41,7 @@ def img_masking(image, pix_threshold):
     '''
     # img_blur = cv.GaussianBlur(image,(5,5),2.5)
     # img_blur = cv.bilateralFilter(image, 5, 75,125)
-    return np.where(image > pix_threshold, image, 0).astype(np.uint8)
+    return np.where(image > pix_threshold, 1, 0).astype(np.uint8)
 
 
 def get_histogram_equalization(frame, _params_histogram):
@@ -130,25 +130,35 @@ def generate_random_color(index=None):
     
     
 
-def kalman_filter_ellipse_tracking(frames):
+def kalman_filter_ellipse_tracking(ellipse_array):
     def initialize_kalman_filter():
-        kf = KalmanFilter(dim_x=4, dim_z=2)
-        kf.x = np.array([0., 0., 0., 0.])  # Initial state
-        kf.F = np.array([[1, 0, 1, 0],  # State transition matrix
-                        [0, 1, 0, 1],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1]])
-        kf.H = np.array([[1, 0, 0, 0],  # Measurement function
-                        [0, 1, 0, 0]])
-        kf.R = np.eye(2) * 0.05  # Measurement noise
-        kf.Q = np.diag([0.1, 0.1, 0.01, 0.01])  # Process noise
-        kf.P = np.diag([1, 1, 1, 1])
+        # Updated to track 5 parameters: center_x, center_y, major_axis, minor_axis, angle
+        kf = KalmanFilter(dim_x=10, dim_z=5)
+        kf.x = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
+        kf.F = np.eye(10)
+        # Position and velocity relationships
+        kf.F[0, 5] = kf.F[1, 6] = kf.F[2, 7] = kf.F[3, 8] = kf.F[4, 9] = 1.0
+        kf.H = np.zeros((5, 10))
+        np.fill_diagonal(kf.H, 1.0)
+        # Measurement noise (position, size, angle)
+        kf.R = np.diag([5.0, 5.0, 2.0, 2.0, 10.0])
+        kf.Q = np.eye(10) * 0.1
+        kf.Q[5:, 5:] = np.eye(5) * 0.01  # Lower process noise for velocities
+        kf.P = np.eye(10) * 100
         return kf
-
+    
+    def initialize_kalman_with_detection(detection):
+        """Initialize Kalman filter with actual detection values"""
+        kf = initialize_kalman_filter()
+        # Set initial state to the actual detection
+        kf.x[:5] = detection
+        # Reduce initial uncertainty since we have a real measurement
+        kf.P = np.eye(10) * 10
+        return kf
+    
     def greedy_minima_assignment(cost_matrix):
         flat_indices = np.argsort(cost_matrix.ravel())
         nrows, ncols = cost_matrix.shape
-        
         selected_cols = set()
         row_assignments = -np.ones(nrows, dtype=int)
         
@@ -159,89 +169,177 @@ def kalman_filter_ellipse_tracking(frames):
                 selected_cols.add(col)
                 if len(selected_cols) == min(nrows, ncols):
                     break
-                    
         return row_assignments
 
-    n_frames, _, initial_n_tracks = frames.shape
-    print(frames.shape)
-    output = np.full((n_frames, 5, initial_n_tracks), np.nan)  # 5 parameters for ellipses
+    n_frames, n_params, max_detections = ellipse_array.shape
+    initial_capacity = max_detections * 2
+    tracked_ellipses = np.full((n_frames, n_params, initial_capacity), np.nan)
     
-    kfs = [initialize_kalman_filter() for _ in range(initial_n_tracks)]
-    last_positions = np.full((initial_n_tracks, 2), np.inf)  # Only tracking center positions
+    kfs = [initialize_kalman_filter() for _ in range(initial_capacity)]
+    last_ellipses = np.full((initial_capacity, 5), np.inf)  # Updated to 5 parameters
+    last_seen_frame = np.full(initial_capacity, -1)
+    track_used = np.zeros(initial_capacity, dtype=bool)
+    track_active = np.zeros(initial_capacity, dtype=bool)  # Currently active tracks
+    next_track_id = 0
     
-    current_n_tracks = initial_n_tracks  # Keep track of the current number of tracks
+    # Parameters for track management
+    MAX_MISSING_FRAMES = 25  # Frames before track becomes inactive
+    MAX_REASSING_DIST = 50
     
-    for frame_idx in tqdm(range(n_frames), desc='Tracking bodies...'):
-        ellipses = frames[frame_idx].T  # Shape: (n_ellipses, 5)
-        valid_ellipses_idx = [i for i, ellipse in enumerate(ellipses) if not np.isnan(ellipse).any()]
+    for frame_idx in tqdm(range(n_frames), desc='Tracking ellipses'):
+        ellipses = ellipse_array[frame_idx].T
+        valid_ellipse_idx = [i for i, ellipse in enumerate(ellipses) if not np.isnan(ellipse).any()]
         
-        if not valid_ellipses_idx: continue  # No valid detections, skip this frame
-            
-        n_valid_detections = len(valid_ellipses_idx)
+        if not valid_ellipse_idx:
+            continue
         
-        if n_valid_detections > current_n_tracks:
-            for _ in range(n_valid_detections - current_n_tracks):
-                kfs.append(initialize_kalman_filter())
-                last_positions = np.vstack([last_positions, [np.inf, np.inf]])
-            current_n_tracks = n_valid_detections
-            
-        if current_n_tracks > output.shape[2]:
-            new_capacity = max(current_n_tracks, output.shape[2] * 2)
-            new_output = np.full((n_frames, 5, new_capacity), np.nan)
-            new_output[:, :, :output.shape[2]] = output  # Copy old data
-            output = new_output
-            
-        cost_matrix = np.full((current_n_tracks, n_valid_detections), np.inf)
+        current_ellipses = np.array([ellipses[i][:5] for i in valid_ellipse_idx])  # Take only first 5 parameters
+        n_detections = len(current_ellipses)
         
-        for obj_idx in range(current_n_tracks):
-            kfs[obj_idx].predict()
-            predicted_c = kfs[obj_idx].x[:2] 
-            
-            if np.isinf(last_positions[obj_idx]).any(): continue  # Skip objects with no previous valid detection
-                
-            current_centers = np.array([ellipses[idx][:2] for idx in valid_ellipses_idx])
-            kalman_distances = np.linalg.norm(predicted_c - current_centers, axis=1)
-            euclid_distances = np.linalg.norm(last_positions[obj_idx] - current_centers, axis=1) if frame_idx > 0 else np.zeros(len(valid_ellipses_idx))
-            
-            combined_distances =  kalman_distances + euclid_distances
-            cost_matrix[obj_idx, :] = combined_distances
-            
-        associations = greedy_minima_assignment(cost_matrix)
+        # Update track statuses - mark tracks as inactive if missing too long
+        for track_idx in range(next_track_id):
+            if track_used[track_idx] and track_active[track_idx]:
+                if frame_idx - last_seen_frame[track_idx] > MAX_MISSING_FRAMES:
+                    track_active[track_idx] = False
         
-        for c, r in enumerate(associations):
-            if r == -1:
+        
+        # Multiple detections - build cost matrix for ALL used tracks
+        cost_matrix = np.full((next_track_id, n_detections), np.inf)
+        
+        for track_idx in range(next_track_id):
+            if not track_used[track_idx]:
                 continue
-                
-            current_ellipse = ellipses[valid_ellipses_idx[r]]
-            current_center = current_ellipse[:2]
             
-            # Check if distance from last position is reasonable
-            if np.isinf(last_positions[c]).any() or np.linalg.norm(current_center - last_positions[c]) < 75 or c < len(last_positions):
-                # Update Kalman filter with just the center position
-                kfs[c].update(current_center)
-                output[frame_idx, :, c] = current_ellipse
-                last_positions[c] = current_center
-            else:
-                # New object detected
-                new_idx = np.sum(~np.isnan(output[0, 0]))
-                if new_idx >= output.shape[2]:
-                    output = np.concatenate([output, np.full((n_frames, 5, 1), np.nan)], axis=2)
-                    last_positions = np.vstack([last_positions, [np.inf, np.inf]])
+            if not track_active[track_idx]:
+                cost_matrix[track_idx, :] = np.inf
+                continue
+            
+            kfs[track_idx].predict()
+            
+            # Kalman filter prediction 
+            predicted_state = kfs[track_idx].x[:5]
+            predicted_center = predicted_state[:2]
+            predicted_major = predicted_state[2]
+            predicted_minor = predicted_state[3]
+            predicted_angle = predicted_state[4]
+            
+            # Get last actual detection for Euclidean distance calculation
+            last_ellipse = last_ellipses[track_idx]
+            last_center = last_ellipse[:2]
+            last_major = last_ellipse[2]
+            last_minor = last_ellipse[3]
+            last_angle = last_ellipse[4]
+            
+            # Calculate multi-dimensional cost for each detection
+            costs = []
+            for det_idx in range(n_detections):
+                current_ellipse = current_ellipses[det_idx]
+                current_center = current_ellipse[:2]
+                current_major = current_ellipse[2]
+                current_minor = current_ellipse[3]
+                current_angle = current_ellipse[4]
                 
-                output[frame_idx, :, new_idx] = current_ellipse
-                last_positions[new_idx] = current_center
+                # POSITION COST (60% Kalman, 40% Euclidean)
+                kalman_position_dist = np.linalg.norm(predicted_center - current_center)
+                euclidean_position_dist = np.linalg.norm(last_center - current_center)
+                position_cost = 0.6 * kalman_position_dist + 0.4 * euclidean_position_dist
                 
-                kfs.append(initialize_kalman_filter())
-                kfs[-1].update(current_center)
+                # SIZE COST (60% Kalman, 40% Euclidean)
+                avg_major_k = (predicted_major + current_major) / 2
+                avg_minor_k = (predicted_minor + current_minor) / 2
+                if avg_major_k > 0 and avg_minor_k > 0:
+                    kalman_size_dist = (abs(predicted_major - current_major) / avg_major_k + 
+                                    abs(predicted_minor - current_minor) / avg_minor_k) * 50
+                else:
+                    kalman_size_dist = 1000
+                
+                # Euclidean size distance
+                avg_major_e = (last_major + current_major) / 2
+                avg_minor_e = (last_minor + current_minor) / 2
+                if avg_major_e > 0 and avg_minor_e > 0:
+                    euclidean_size_dist = (abs(last_major - current_major) / avg_major_e + 
+                                        abs(last_minor - current_minor) / avg_minor_e) * 50
+                else:
+                    euclidean_size_dist = 1000
+                
+                size_cost = 0.6 * kalman_size_dist + 0.4 * euclidean_size_dist
+                
+                # ANGLE COST (60% Kalman, 40% Euclidean)
+                # Kalman angle distance
+                kalman_angle_diff = abs(predicted_angle - current_angle)
+                kalman_angle_diff = min(kalman_angle_diff, 180 - kalman_angle_diff)
+                kalman_angle_dist = kalman_angle_diff * 2
+                
+                # Euclidean angle distance
+                euclidean_angle_diff = abs(last_angle - current_angle)
+                euclidean_angle_diff = min(euclidean_angle_diff, 180 - euclidean_angle_diff)
+                euclidean_angle_dist = euclidean_angle_diff * 2
+                
+                angle_cost = 0.6 * kalman_angle_dist + 0.4 * euclidean_angle_dist
+                
+                # Combined weighted cost (no area cost)
+                total_cost = (position_cost + size_cost + angle_cost) 
+                
+                costs.append(total_cost)
+            
+            cost_matrix[track_idx, :] = costs
+        
+        assignments = greedy_minima_assignment(cost_matrix)
+        assigned_detections = set()
+        
+        for track_idx, det_idx in enumerate(assignments):
+            if det_idx == -1 or not track_used[track_idx] or not track_active[track_idx]:
+                continue
+            
+            current_ellipse = current_ellipses[det_idx]
+            predicted_center = kfs[track_idx].x[:2]
+            current_center = current_ellipse[:2]
+            center_distance = np.linalg.norm(predicted_center - current_center)
+
+            if center_distance > 500: continue
+
+            assigned_detections.add(det_idx)
+            
+            kfs[track_idx].update(current_ellipse)
+            tracked_ellipses[frame_idx, :5, track_idx] = current_ellipse  # Only store first 5 parameters
+            last_ellipses[track_idx] = current_ellipse
+            last_seen_frame[track_idx] = frame_idx
+        
+        # Create new tracks for unassigned detections
+        for det_idx in range(n_detections):
+            if det_idx in assigned_detections:
+                continue
+            
+            new_track_idx = next_track_id
+            next_track_id += 1
+            
+            if new_track_idx >= tracked_ellipses.shape[2]:
+                new_capacity = tracked_ellipses.shape[2] * 2
+                new_tracked = np.full((n_frames, n_params, new_capacity), np.nan)
+                new_tracked[:, :, :tracked_ellipses.shape[2]] = tracked_ellipses
+                tracked_ellipses = new_tracked
+                
+                last_ellipses = np.vstack([last_ellipses, np.full((new_capacity - last_ellipses.shape[0], 5), np.inf)])  # 5 parameters
+                last_seen_frame = np.append(last_seen_frame, np.full(new_capacity - len(last_seen_frame), -1))
+                track_used = np.append(track_used, np.zeros(new_capacity - len(track_used), dtype=bool))
+                track_active = np.append(track_active, np.zeros(new_capacity - len(track_active), dtype=bool))
+                
+                for _ in range(new_capacity - len(kfs)):
+                    kfs.append(initialize_kalman_filter())
+            
+            current_ellipse = current_ellipses[det_idx]
+            kfs[new_track_idx] = initialize_kalman_with_detection(current_ellipse)
+            kfs[new_track_idx].update(current_ellipse)
+            tracked_ellipses[frame_idx, :5, new_track_idx] = current_ellipse  # Only store first 5 parameters
+            last_ellipses[new_track_idx] = current_ellipse
+            last_seen_frame[new_track_idx] = frame_idx
+            track_used[new_track_idx] = True
+            track_active[new_track_idx] = True
     
-    # Trim output to actual tracks
-    #valid_indices = ~np.isnan(output[0, 0])
-    #output = output[:, :, valid_indices]
-    
-    return output
+    return tracked_ellipses
 
 
-def remove_incomplete_tracks(tracks, portion=.90):
+def remove_incomplete_tracks(tracks, portion=.01):
     assert portion >= 0 and portion <= 1, f'Choose a valid portion (0-1) of missing data'
     valid_indices = []
 

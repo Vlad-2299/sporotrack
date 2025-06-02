@@ -111,7 +111,8 @@ def main():
             print(f" -> For {ellipses_array.shape[0]} frames, a max of {ellipses_array.shape[-1]} bodies were detected")
             
             tracked_ellipses = utils.kalman_filter_ellipse_tracking(ellipses_array)
-            #tracked_ellipses = remove_incomplete_tracks(tracked_ellipses)
+            #tracked_ellipses = utils.remove_incomplete_tracks(tracked_ellipses)
+            new_max_dets = tracked_ellipses.shape[-1]
             
             assert tracked_ellipses.shape[0] == len(_input_file), 'Frame size missmatch'
 
@@ -132,7 +133,7 @@ def main():
                 sum_movement_y = 0
                 sum_magnitude = 0
                 valid_ellipses = 0
-                for obj_idx in range(max_detections):
+                for obj_idx in range(new_max_dets):
 
                     ellipse_params = tracked_ellipses[i_f, :, obj_idx]
                     if np.isnan(ellipse_params[0]): continue
